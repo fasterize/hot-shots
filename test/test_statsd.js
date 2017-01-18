@@ -3,6 +3,7 @@
 var dgram = require('dgram'),
     domain = require('domain'),
     assert = require('assert'),
+    sinon = require('sinon'),
     mainStatsD = require('../').StatsD;
 
 /**
@@ -1385,3 +1386,51 @@ describe('StatsD child of a child client', doTests.bind(null, function () {
     // empty options to verify same behaviour
   });
 }));
+
+
+describe('#extra utils', function() {
+  describe('#duration', function() {
+    var statsd, clock, timingStub;
+
+    beforeEach(function(){
+      statsd = new mainStatsD('localhost', '123');
+      clock = sinon.useFakeTimers();
+      timingStub = sinon.stub(statsd, 'timing');
+    });
+
+    afterEach(function(){
+      clock.restore();
+      timingStub.restore();
+    });
+
+    it('should send the right duration', function(finished) {
+
+      statsd.duration(function(done){
+        setTimeout(done, 3000);
+      }, 'task');
+
+      assert(timingStub.notCalled);
+      clock.tick(2500);
+      assert(timingStub.notCalled);
+
+      clock.tick(4000);
+      assert(timingStub.calledWith('task', 3000));
+      finished();
+    });
+
+    it('should send the right duration and params', function(finished) {
+
+      statsd.duration(function(done){
+        setTimeout(done, 300);
+      }, 'task', null, ['tag1', 'tag2']);
+
+      assert(timingStub.notCalled);
+      clock.tick(100);
+      assert(timingStub.notCalled);
+
+      clock.tick(301);
+      assert(timingStub.calledWith('task', 300, null, ['tag1', 'tag2']));
+      finished();
+    });
+  });
+});
