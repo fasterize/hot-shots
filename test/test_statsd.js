@@ -1418,10 +1418,13 @@ describe('#extra utils', function() {
       finished();
     });
 
-    it('should send the right duration and params', function(finished) {
+    it('should send the right duration and params, the done should return the measured duration', function(finished) {
 
       statsd.duration(function(done){
-        setTimeout(done, 300);
+        setTimeout(function() {
+          var timeElapsed = done();
+          assert(timeElapsed === 300);
+        }, 300);
       }, 'task', null, ['tag1', 'tag2']);
 
       assert(timingStub.notCalled);
