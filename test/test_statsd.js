@@ -1419,11 +1419,12 @@ describe('#extra utils', function() {
     });
 
     it('should send the right duration and params, the done should return the measured duration', function(finished) {
+      clock.tick(100);
 
       statsd.duration(function(done){
         setTimeout(function() {
           var timeElapsed = done();
-          assert(timeElapsed === 300);
+          assert.equal(timeElapsed, 300);
         }, 300);
       }, 'task', null, ['tag1', 'tag2']);
 
