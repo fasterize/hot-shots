@@ -1295,19 +1295,19 @@ function doTests(StatsD) {
       statsd.dnsError = err;
       statsd.send('test title');
     });
-    
+
     it('should errback for an unresolvable host', function (finished) {
       var statsd = new StatsD({
         host: 'unresolvable'
       });
-    
+
       statsd.send('test title', [], function (error) {
         assert.ok(error);
         assert.equal(error.code, 'ENOTFOUND');
         finished();
       });
     });
-    
+
     it('should use errorHandler for an unresolvable host', function (finished) {
       var statsd = new StatsD({
         host: 'unresolvable',
@@ -1317,29 +1317,29 @@ function doTests(StatsD) {
           finished();
         }
       });
-    
+
       statsd.send('test title');
     });
-    
+
     it('should throw for an unresolvable host', function (finished) {
       var d = domain.create();
       var statsd = new StatsD({
         host: 'unresolvable',
       });
-      
+
       d.add(statsd.socket);
-      
+
       d.on('error', function (error) {
         assert.ok(error);
         assert.equal(error.code, 'ENOTFOUND');
-        
+
         // Important to exit the domain or further tests will continue to run
         // therein.
         d.exit();
-        
+
         finished();
       });
-    
+
       d.run(function () {
         statsd.send('test title');
       });
@@ -1390,21 +1390,23 @@ describe('StatsD child of a child client', doTests.bind(null, function () {
 
 describe('#extra utils', function() {
   describe('#duration', function() {
-    var statsd, clock, timingStub;
+    var statsd, timingStub, hrtimeStub, clock;
 
     beforeEach(function(){
-      statsd = new mainStatsD('localhost', '123');
       clock = sinon.useFakeTimers();
+      statsd = new mainStatsD('localhost', '123');
+      hrtimeStub = sinon.stub(process, 'hrtime');
       timingStub = sinon.stub(statsd, 'timing');
     });
 
     afterEach(function(){
-      clock.restore();
+      hrtimeStub.restore();
       timingStub.restore();
     });
 
     it('should send the right duration', function(finished) {
-
+      hrtimeStub.onFirstCall().returns([0, 0]);
+      hrtimeStub.onSecondCall().returns([0, 3000000000]);
       statsd.duration(function(done){
         setTimeout(done, 3000);
       }, 'task');
@@ -1414,17 +1416,18 @@ describe('#extra utils', function() {
       assert(timingStub.notCalled);
 
       clock.tick(4000);
-      assert(timingStub.calledWith('task', 3000));
+      sinon.assert.calledWith(timingStub,'task', 3000);
       finished();
     });
 
     it('should send the right duration and params, the done should return the measured duration', function(finished) {
       clock.tick(100);
-
+      hrtimeStub.onFirstCall().returns([100, 0]);
+      hrtimeStub.withArgs([100, 0]).returns([0, 300000000]);
       statsd.duration(function(done){
         setTimeout(function() {
           var timeElapsed = done();
-          assert.equal(timeElapsed, 300);
+          assert.equal(timeElapsed, "300.000");
         }, 300);
       }, 'task', null, ['tag1', 'tag2']);
 
@@ -1433,7 +1436,7 @@ describe('#extra utils', function() {
       assert(timingStub.notCalled);
 
       clock.tick(301);
-      assert(timingStub.calledWith('task', 300, null, ['tag1', 'tag2']));
+      sinon.assert.calledWith(timingStub,'task', 300, null, ['tag1', 'tag2']);
       finished();
     });
   });
